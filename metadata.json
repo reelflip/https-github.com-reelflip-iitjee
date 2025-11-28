@@ -1,0 +1,5 @@
+{
+  "name": "JEE PrepTracker",
+  "description": "A comprehensive tracking system for IIT JEE aspirants and their parents, featuring syllabus tracking, mock tests, and performance analytics.",
+  "requestFramePermissions": []
+}
