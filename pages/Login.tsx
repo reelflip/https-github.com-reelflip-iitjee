@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
-import { GraduationCap, Users, Lock, Mail, ShieldCheck, ArrowRight } from 'lucide-react';
+import { GraduationCap, Users, Lock, Mail, ShieldCheck, ArrowRight, Database, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const { login, registerUser } = useApp();
+  const { login, registerUser, setupDatabase } = useApp();
   const [activeTab, setActiveTab] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.STUDENT);
   
   const [formData, setFormData] = useState({ name: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'LOGIN') {
-      const success = login(formData.email, selectedRole);
+      const success = await login(formData.email, selectedRole);
       if (!success) {
-        setToast("Login failed. Using demo access...");
-        setTimeout(() => login(formData.email, selectedRole), 1000);
+        setToast("Login failed. Check your credentials.");
       }
     } else {
-      registerUser(formData.name, formData.email, selectedRole);
+      await registerUser(formData.name, formData.email, selectedRole);
       setToast("Account created! Logging in...");
       setTimeout(() => login(formData.email, selectedRole), 1000);
     }
@@ -32,10 +32,26 @@ const Login: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  const handleInitDatabase = async () => {
+    if (window.confirm("Initialize Database Tables? This will create tables if they don't exist.")) {
+      setIsInitializing(true);
+      setToast("Initializing database...");
+      const success = await setupDatabase();
+      setIsInitializing(false);
+      if (success) {
+        setToast("Database Initialized Successfully!");
+      } else {
+        setToast("Failed to initialize database. Check API connection.");
+      }
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
       {toast && (
-        <div className="fixed top-4 right-4 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in">
+        <div className="fixed top-4 right-4 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in flex items-center gap-2">
+           <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
           {toast}
         </div>
       )}
@@ -169,9 +185,21 @@ const Login: React.FC = () => {
         </div>
       </div>
       
-      <p className="mt-8 text-xs text-slate-400">
-        Simulated Database Environment • v1.1.0 (Admin Support)
-      </p>
+      <div className="mt-8 flex flex-col items-center gap-2 text-xs text-slate-400">
+        <p>Simulated Database Environment • v1.1.0</p>
+        <button 
+          onClick={handleInitDatabase}
+          disabled={isInitializing}
+          className="flex items-center gap-2 px-3 py-1.5 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors"
+        >
+          {isInitializing ? (
+             <div className="animate-spin h-3 w-3 border-2 border-slate-600 rounded-full border-t-transparent"></div>
+          ) : (
+             <Database size={12} />
+          )}
+          System Setup: Initialize Database
+        </button>
+      </div>
     </div>
   );
 };

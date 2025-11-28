@@ -26,6 +26,8 @@ interface AppContextType {
   feedbacks: Feedback[];
   sendFeedback: (message: string) => void;
   getSyllabusCoverage: () => { overall: number; physics: number; chemistry: number; math: number };
+  
+  setupDatabase: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -43,15 +45,32 @@ const INITIAL_PROGRESS: Progress[] = SYLLABUS_DATA.map(ch => ({
   completionPercentage: 0
 }));
 
-// Helper for safe fetching
+// Helper for safe fetching that handles "garbage" appended by free hosting providers
 const safeFetch = async (url: string, options?: RequestInit) => {
   try {
     const res = await fetch(url, options);
     const text = await res.text();
+    
     try {
+      // First try standard parse
       return JSON.parse(text);
     } catch (e) {
-      console.warn("API returned non-JSON response:", text.substring(0, 100));
+      // If failed, try to sanitize (Hosting providers often add <script> or <div> at the end)
+      try {
+        // Find the last closing brace or bracket
+        const lastBrace = text.lastIndexOf('}');
+        const lastBracket = text.lastIndexOf(']');
+        const cutOff = Math.max(lastBrace, lastBracket);
+        
+        if (cutOff > 0) {
+          const cleanText = text.substring(0, cutOff + 1);
+          return JSON.parse(cleanText);
+        }
+      } catch (e2) {
+        // Fallback: console log but return null to prevent app crash
+        console.warn("API returned invalid JSON even after cleaning:", text.substring(0, 100) + "...");
+        return null;
+      }
       return null;
     }
   } catch (err) {
@@ -204,6 +223,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   };
 
+  const setupDatabase = async () => {
+    if (USE_LIVE_API) {
+      const result = await safeFetch(`${API_URL}?action=setup_db`);
+      return !!result?.success;
+    }
+    return true;
+  };
+
   return (
     <AppContext.Provider value={{ 
       currentUser, 
@@ -220,7 +247,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       testResults, 
       feedbacks,
       sendFeedback,
-      getSyllabusCoverage
+      getSyllabusCoverage,
+      setupDatabase
     }}>
       {children}
     </AppContext.Provider>
